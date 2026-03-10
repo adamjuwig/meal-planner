@@ -123,16 +123,25 @@ export default function App() {
           </Droppable>
         </div>
 
-        {/* Main Content */}
+       {/* Main Content */}
         <div style={{ flex: 1 }}>
-          <h1 style={{
-            marginBottom: '20px', fontSize: '28px', fontWeight: 800,
-            color: '#2e7d32', letterSpacing: '-0.5px'
-          }}>🥗 Meal Planner</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#2e7d32', letterSpacing: '-0.5px' }}>
+              🥗 Meal Planner
+            </h1>
+            <button onClick={() => {
+              localStorage.removeItem('mealPlan');
+              window.location.reload();
+            }} style={{
+              padding: '8px 16px', borderRadius: '8px',
+              background: '#fff', border: '1px solid #e0e0e0',
+              color: '#e53935', fontWeight: 600, fontSize: '13px',
+              cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+            }}>🗑️ Clear Plan</button>
+          </div>
           <MealPlan recipes={recipes} onPlanChange={setPlan} savedPlan={plan} dragEndRef={handleDragEndRef} />
           <ShoppingList plan={plan} />
         </div>
-
       </div>
     </DragDropContext>
   );

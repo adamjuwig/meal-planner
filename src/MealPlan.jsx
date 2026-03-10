@@ -1,22 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Droppable } from '@hello-pangea/dnd';
 
 const MealPlan = ({ recipes, onPlanChange, savedPlan, dragEndRef }) => {
-  const [mealPlan, setMealPlan] = useState({
-    Monday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Tuesday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Wednesday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Thursday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Friday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Saturday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
-    Sunday: { breakfast: null, lunch: null, dinner: null, snacks: [] }
+  const [mealPlan, setMealPlan] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mealPlan');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      Monday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Tuesday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Wednesday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Thursday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Friday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Saturday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
+      Sunday: { breakfast: null, lunch: null, dinner: null, snacks: [] }
+    };
   });
 
-  const [availableRecipes, setAvailableRecipes] = useState([]);
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
-  const [isEditing, setIsEditing] = useState(false);
-  const [planHistory, setPlanHistory] = useState([]);
+  // Save to localStorage whenever plan changes
+  useEffect(() => {
+    localStorage.setItem('mealPlan', JSON.stringify(mealPlan));
+    if (onPlanChange) onPlanChange(mealPlan);
+  }, [mealPlan]);
 
+  // Drag and drop handler
   useEffect(() => {
     if (dragEndRef) {
       dragEndRef.current = (result, recipes) => {
@@ -40,87 +48,18 @@ const MealPlan = ({ recipes, onPlanChange, savedPlan, dragEndRef }) => {
     }
   }, [dragEndRef]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('mealPlanHistory');
-    if (stored) {
-      try {
-        setPlanHistory(JSON.parse(stored));
-      } catch (error) {
-        console.error('Error parsing stored plan history:', error);
-        setPlanHistory([]);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (savedPlan) {
-      setMealPlan(savedPlan);
-    }
-  }, [savedPlan]);
-
-  useEffect(() => {
-    if (recipes) {
-      setAvailableRecipes(recipes);
-    }
-  }, [recipes]);
-
-  useEffect(() => {
-    if (onPlanChange) {
-      onPlanChange(mealPlan);
-    }
-  }, [mealPlan, onPlanChange]);
-
-  function getCurrentWeek() {
-    const today = new Date();
-    const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-    return startOfWeek.toISOString().split('T')[0];
-  }
-
-  const findRecipeInPlan = useCallback((recipeId) => {
-    for (const day of Object.values(mealPlan)) {
-      if (day.breakfast && day.breakfast.id === recipeId) return day.breakfast;
-      if (day.lunch && day.lunch.id === recipeId) return day.lunch;
-      if (day.dinner && day.dinner.id === recipeId) return day.dinner;
-      const snackRecipe = day.snacks.find(snack => snack.id === recipeId);
-      if (snackRecipe) return snackRecipe;
-    }
-    return null;
-  }, [mealPlan]);
-
-  const assignRecipeToSlot = (planCopy, slotId, recipe) => {
-    const [day, mealType] = slotId.split('-');
-
-    if (mealType === 'snacks') {
-      if (!planCopy[day].snacks.some(snack => snack.id === recipe.id)) {
-        planCopy[day].snacks = [...planCopy[day].snacks, recipe];
-      }
-    } else {
-      planCopy[day][mealType] = recipe;
-    }
-  };
-
-  const removeRecipeFromSlot = (planCopy, slotId, recipeId) => {
-    const [day, mealType] = slotId.split('-');
-
-    if (mealType === 'snacks') {
-      planCopy[day].snacks = planCopy[day].snacks.filter(snack => snack.id !== recipeId);
-    } else if (planCopy[day][mealType] && planCopy[day][mealType].id === recipeId) {
-      planCopy[day][mealType] = null;
-    }
-  };
-
   const getDayNutrition = (dayPlan) => {
-  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  ['breakfast', 'lunch', 'dinner'].forEach(meal => {
-    if (dayPlan[meal]) {
-      totals.calories += dayPlan[meal].nutrition.calories || 0;
-      totals.protein += dayPlan[meal].nutrition.protein || 0;
-      totals.carbs += dayPlan[meal].nutrition.carbs || 0;
-      totals.fat += dayPlan[meal].nutrition.fat || 0;
-    }
-  });
-  return totals;
-};
+    const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    ['breakfast', 'lunch', 'dinner'].forEach(meal => {
+      if (dayPlan[meal]) {
+        totals.calories += dayPlan[meal].nutrition.calories || 0;
+        totals.protein += dayPlan[meal].nutrition.protein || 0;
+        totals.carbs += dayPlan[meal].nutrition.carbs || 0;
+        totals.fat += dayPlan[meal].nutrition.fat || 0;
+      }
+    });
+    return totals;
+  };
 
   return (
     <div>
@@ -217,6 +156,5 @@ const MealPlan = ({ recipes, onPlanChange, savedPlan, dragEndRef }) => {
     </div>
   );
 };
-
 
 export default MealPlan;
