@@ -6,7 +6,7 @@ const MealPlan = ({ recipes, onPlanChange, savedPlan, dragEndRef }) => {
     try {
       const saved = localStorage.getItem('mealPlan');
       if (saved) return JSON.parse(saved);
-    } catch (e) {}
+    } catch (e) { }
     return {
       Monday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
       Tuesday: { breakfast: null, lunch: null, dinner: null, snacks: [] },
@@ -24,29 +24,92 @@ const MealPlan = ({ recipes, onPlanChange, savedPlan, dragEndRef }) => {
     if (onPlanChange) onPlanChange(mealPlan);
   }, [mealPlan]);
 
-  // Drag and drop handler
-  useEffect(() => {
-    if (dragEndRef) {
-      dragEndRef.current = (result, recipes) => {
-        if (!result.destination) return;
-        if (result.destination.droppableId === 'recipe-list') return;
-        const recipe = recipes.find(r => String(r.id) === result.draggableId);
-        if (!recipe) return;
-        setMealPlan(prev => {
-          const planCopy = JSON.parse(JSON.stringify(prev));
-          const [day, mealType] = result.destination.droppableId.split('-');
-          if (mealType === 'snacks') {
-            if (!planCopy[day].snacks.some(s => s.id === recipe.id)) {
-              planCopy[day].snacks.push(recipe);
-            }
-          } else {
-            planCopy[day][mealType] = recipe;
+useEffect(() => {
+  if (dragEndRef) {
+    dragEndRef.current = (result, recipes) => {
+      if (!result.destination) return;
+      if (result.destination.droppableId === 'recipe-list') return;
+      const recipe = recipes.find(r => String(r.id) === result.draggableId);
+      if (!recipe) return;
+
+      // First stick the recipe immediately
+      setMealPlan(prev => {
+        const planCopy = JSON.parse(JSON.stringify(prev));
+        const [day, mealType] = result.destination.droppableId.split('-');
+        if (mealType === 'snacks') {
+          if (!planCopy[day].snacks.some(s => s.id === recipe.id)) {
+            planCopy[day].snacks.push(recipe);
           }
-          return planCopy;
+        } else {
+          planCopy[day][mealType] = recipe;
+        }
+        return planCopy;
+      });
+
+      // Then fetch nutrition in the background and update
+      if (recipe.nutrition.calories === 0 && recipe.ingredients.length > 0) {
+        fetchNutrition(recipe.ingredients).then(nutrition => {
+          setMealPlan(prev => {
+            const planCopy = JSON.parse(JSON.stringify(prev));
+            const [day, mealType] = result.destination.droppableId.split('-');
+            if (mealType === 'snacks') {
+              planCopy[day].snacks = planCopy[day].snacks.map(s =>
+                s.id === recipe.id ? { ...s, nutrition } : s
+              );
+            } else if (planCopy[day][mealType]?.id === recipe.id) {
+              planCopy[day][mealType] = { ...planCopy[day][mealType], nutrition };
+            }
+            return planCopy;
+          });
         });
-      };
+      }
+    };
+  }
+}, [dragEndRef]);
+
+ const fetchNutrition = async (ingredients) => {
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  
+  const fetchWithRetry = async (ing, retries = 2) => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await fetch(
+          `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(ing.name)}&search_simple=1&action=process&json=1&page_size=1`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        const data = await res.json();
+        const product = data.products?.[0];
+        if (product?.nutriments) {
+          const n = product.nutriments;
+          totals.calories += Math.round((n['energy-kcal_100g'] || 0) / 10);
+          totals.protein += Math.round((n['proteins_100g'] || 0) / 10);
+          totals.carbs += Math.round((n['carbohydrates_100g'] || 0) / 10);
+          totals.fat += Math.round((n['fat_100g'] || 0) / 10);
+        }
+        return;
+      } catch (e) {
+        if (i === retries) console.log(`Skipping ${ing.name} after ${retries} retries`);
+        else await new Promise(r => setTimeout(r, 500));
+      }
     }
-  }, [dragEndRef]);
+  };
+
+  // Limit to first 5 ingredients to reduce API load
+  const topIngredients = ingredients.slice(0, 5);
+  await Promise.all(topIngredients.map(ing => fetchWithRetry(ing)));
+  
+  // If we got nothing, return a rough estimate based on ingredient count
+  if (totals.calories === 0) {
+    return {
+      calories: ingredients.length * 45,
+      protein: ingredients.length * 3,
+      carbs: ingredients.length * 6,
+      fat: ingredients.length * 2,
+    };
+  }
+
+  return totals;
+};
 
   const getDayNutrition = (dayPlan) => {
     const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };

@@ -25,7 +25,103 @@ function transformMeal(meal) {
   };
 }
 
-function RecipeSidebar({ onRecipesLoaded, recipes }) {
+function RecipeModal({ recipe, onClose }) {
+  if (!recipe) return null;
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: '20px'
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: '16px', maxWidth: '600px', width: '100%',
+        maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+      }}>
+        {/* Header Image */}
+        {recipe.image && (
+          <div style={{ position: 'relative' }}>
+            <img src={recipe.image} alt={recipe.name} style={{
+              width: '100%', height: '220px', objectFit: 'cover',
+              borderRadius: '16px 16px 0 0'
+            }} />
+            <button onClick={onClose} style={{
+              position: 'absolute', top: '12px', right: '12px',
+              background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff',
+              width: '32px', height: '32px', borderRadius: '50%',
+              fontSize: '18px', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center'
+            }}>×</button>
+          </div>
+        )}
+
+        <div style={{ padding: '20px 24px' }}>
+          {/* Title */}
+          <div style={{ marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1a1a1a', margin: '0 0 6px' }}>
+              {recipe.name}
+            </h2>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px',
+                borderRadius: '20px', fontSize: '12px', fontWeight: 600
+              }}>{recipe.category}</span>
+              {recipe.tags?.filter(Boolean).map((tag, i) => (
+                <span key={i} style={{
+                  background: '#f5f5f5', color: '#666', padding: '3px 10px',
+                  borderRadius: '20px', fontSize: '12px'
+                }}>{tag}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Ingredients */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#2e7d32', marginBottom: '10px' }}>
+              🧂 Ingredients
+            </h3>
+            <div style={{ columns: 2, columnGap: '16px' }}>
+              {recipe.ingredients.map((ing, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  padding: '5px 8px', borderRadius: '6px', marginBottom: '4px',
+                  background: i % 2 === 0 ? '#f9fbe7' : '#f1f8e9',
+                  breakInside: 'avoid', fontSize: '13px'
+                }}>
+                  <span style={{ color: '#333', textTransform: 'capitalize' }}>{ing.name}</span>
+                  <span style={{ color: '#888', marginLeft: '8px', whiteSpace: 'nowrap' }}>{ing.unit}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Instructions */}
+          {recipe.instructions?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#2e7d32', marginBottom: '10px' }}>
+                👨‍🍳 Instructions
+              </h3>
+              {recipe.instructions.filter(Boolean).map((step, i) => (
+                <div key={i} style={{
+                  display: 'flex', gap: '12px', marginBottom: '10px', alignItems: 'flex-start'
+                }}>
+                  <div style={{
+                    width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                    background: '#2e7d32', color: '#fff', fontSize: '12px',
+                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>{i + 1}</div>
+                  <p style={{ fontSize: '13px', color: '#444', lineHeight: 1.6, margin: 0 }}>{step}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecipeSidebar({ onRecipesLoaded, recipes, onSelectRecipe }) {
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -151,6 +247,7 @@ function RecipeSidebar({ onRecipesLoaded, recipes }) {
                       ref={provided.innerRef}
                       {...provided.draggableProps}
                       {...provided.dragHandleProps}
+                      onClick={() => onSelectRecipe(recipe)}
                       style={{
                         background: snapshot.isDragging ? '#e8f5e9' : '#fff',
                         border: '1px solid #e0e0e0',
@@ -241,6 +338,7 @@ function ShoppingList({ plan }) {
 export default function App() {
   const [recipes, setRecipes] = useState([]);
   const [plan, setPlan] = useState(null);
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
   const handleDragEndRef = useRef(null);
 
   const handleDragEnd = (result) => {
@@ -249,21 +347,40 @@ export default function App() {
     }
   };
 
+const [activeTab, setActiveTab] = useState('planner');
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div style={{
-        display: 'flex', gap: '24px', padding: '28px 32px',
         fontFamily: "'Segoe UI', sans-serif",
         background: 'linear-gradient(135deg, #f0f7f0 0%, #e8f5e9 100%)',
         minHeight: '100vh', color: '#222'
       }}>
-        <RecipeSidebar recipes={recipes} onRecipesLoaded={setRecipes} />
 
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#2e7d32', letterSpacing: '-0.5px' }}>
-              Meal Planner
-            </h1>
+        {/* Top Nav */}
+        <div style={{
+          background: '#fff', borderBottom: '1px solid #e0e0e0',
+          padding: '0 32px', display: 'flex', alignItems: 'center', gap: '32px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+        }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#2e7d32', padding: '16px 0', margin: 0 }}>
+            Meal Planner
+          </h1>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {['planner', 'shopping'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                padding: '18px 20px', border: 'none', background: 'none',
+                borderBottom: activeTab === tab ? '3px solid #2e7d32' : '3px solid transparent',
+                color: activeTab === tab ? '#2e7d32' : '#888',
+                fontWeight: activeTab === tab ? 700 : 400,
+                fontSize: '14px', cursor: 'pointer', textTransform: 'capitalize',
+                transition: 'all 0.2s'
+              }}>
+                {tab === 'planner' ? 'Planner' : 'Shopping List'}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginLeft: 'auto' }}>
             <button onClick={() => {
               localStorage.removeItem('mealPlan');
               window.location.reload();
@@ -271,12 +388,30 @@ export default function App() {
               padding: '8px 16px', borderRadius: '8px',
               background: '#fff', border: '1px solid #e0e0e0',
               color: '#e53935', fontWeight: 600, fontSize: '13px',
-              cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+              cursor: 'pointer'
             }}>Clear Plan</button>
           </div>
-          <MealPlan recipes={recipes} onPlanChange={setPlan} dragEndRef={handleDragEndRef} />
-          <ShoppingList plan={plan} />
         </div>
+
+        <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+
+        {/* Planner Tab */}
+        {activeTab === 'planner' && (
+          <div style={{ display: 'flex', gap: '24px', padding: '28px 32px' }}>
+            <RecipeSidebar recipes={recipes} onRecipesLoaded={setRecipes} onSelectRecipe={setSelectedRecipe} />
+            <div style={{ flex: 1 }}>
+              <MealPlan recipes={recipes} onPlanChange={setPlan} dragEndRef={handleDragEndRef} />
+            </div>
+          </div>
+        )}
+          <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+        {/* Shopping List Tab */}
+        {activeTab === 'shopping' && (
+          <div style={{ padding: '28px 32px', maxWidth: '800px', margin: '0 auto' }}>
+            <ShoppingList plan={plan} />
+          </div>
+        )}
+
       </div>
     </DragDropContext>
   );
